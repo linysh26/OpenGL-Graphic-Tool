@@ -101,4 +101,3 @@ void main()
 } 
 ```
 It is obvious that Phong calculate light in fragment shader while Gouraud in vertex shader instead, which shows that Phong is calculating light using normals interpolated while Gouraud outputs the interpolation of vertices' color calculated in vertex shader using corresponding normals.
-### Some differences between Phong & Gouraud
