@@ -1,0 +1,46 @@
+#version 330 core
+// position of this fragment which is the interpolation of vertices of the geometry
+in vec3 FragPos;
+// normal of this fragment which is the interppolation of normals of vertices of the geometry
+in vec3 Normal;
+// final color out from fragment shader
+out vec4 FragColor;
+// color of this fragment
+uniform vec3 objectColor;
+// source light color
+uniform vec3 lightColor;
+// view position
+uniform vec3 viewPos;
+// source light position
+uniform vec3 lightPos;
+// strength of ambient's influence
+uniform float ambientFactor;
+// strength of diffuse's influence
+uniform float diffuseFactor;
+// intensity of reflection
+uniform float specularFactor;
+// shininess
+uniform float shininess;
+void main()
+{
+	// ambient
+	vec3 ambient = ambientFactor * lightColor;
+
+	// diffuse
+	vec3 normal = normalize(Normal);
+	vec3 lightDirection = normalize(lightPos - FragPos);
+	// we ignore influence of light with incident angle is more than 90 degrees
+	float diffuseStrength = max(dot(norm, lightDirection), 0.0f);
+	vec3 diffuse = diffuseStrength * lightColor * diffuseFactor;
+
+	// specular
+	vec3 viewDirection = normalize(viewPos - FragPos);
+	vec3 reflectDirection = normalize(reflect(-lightDirection, normal));
+	// highlight centralized when shininess grows
+	float specularStrength = pow(max(dot(viewDirection, reflectDirection), shininess), 0.0f);
+	vec3 specular = specularStrength * lightColor * specularFactor;
+
+	// final phong out light color
+	vec3 out = (ambient + diffuse + specular) * objectColor;
+	FragColor = vec4(out, 1.0f);
+}
