@@ -1,5 +1,6 @@
 # OpenGL-Graphic-Tool
 This is a tool implemented by c++'s OpenGL which can draw triangles, lines, circles and 3D cube
+@[toc]
 ## LearnOpenGL-Turorial
 [Here is the link for this nice tutorial](https://learnopengl-cn.github.io)
 ## GLFW
