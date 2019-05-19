@@ -1,7 +1,14 @@
 # OpenGL-Graphic-Tool
 This is a tool implemented by c++'s OpenGL which can draw triangles, lines, circles and 3D cube
-@[toc]
-## LearnOpenGL-Turorial
++ LearnOpenGL-Tutorial
++ GLFW
++ GLAD
++ ImGui
++ Light Model
++ Light Texture
++ Shadow  
+
+## LearnOpenGL-Tutorial
 [Here is the link for this nice tutorial](https://learnopengl-cn.github.io)
 ## GLFW
 [download GLFW and include it in your project](https://learnopengl-cn.github.io/01%20Getting%20started/02%20Creating%20a%20window/#glfw)
@@ -107,7 +114,7 @@ void main()
 } 
 ```
 It is obvious that Phong calculate light in fragment shader while Gouraud in vertex shader instead, which shows that Phong is calculating light using normals interpolated while Gouraud outputs the interpolation of vertices' color calculated in vertex shader using corresponding normals.
-## Lighting Texture
+## Light Texture
 Generally different material will present different effect of light's reflection, such as metal with a shiny reflecting effect and wooden surface always with a weak reflection, which means that it's neccessary for us to prepare different texture for different materials.
 Usually two kinds of textures is better to be given:
 + diffuse texture
