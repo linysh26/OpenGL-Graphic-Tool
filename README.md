@@ -138,22 +138,22 @@ uniform Light light;
 uniform Material material;
 void main()
 {
-// calculate ambient with diffuse texture (surely you can also use an ambient texture)
+	// calculate ambient with diffuse texture (surely you can also use an ambient texture)
 	vec3 ambient = light.ambient * light.color * texture(material.diffuse, fs_in.TexCoords).rgb;
-// calculate normal and light direction
+	// calculate normal and light direction
 	vec3 normal = normalize(fs_in.Normal);
 	vec3 lightDirection = normalize(light.position - fs_in.FragPos);
-// calculate diffuse component with diffuse texture
+	// calculate diffuse component with diffuse texture
 	float diffuseStrength = max(dot(normal, lightDirection), 0.0f);
 	vec3 diffuse = light.diffuse * (diffuseStrength * light.color * texture(material.diffuse, fs_in.TexCoords).rgb);
-// calculate specular component with specular texture
+	// calculate specular component with specular texture
 	vec3 viewDirection = normalize(viewPos - fs_in.FragPos);
 	vec3 halfwayDirection = normalize(lightDirection + viewDirection);
 	float specularStrength = pow(max(dot(normal, halfwayDirection), 0.0f), material.shininess);
 	vec3 specular = light.specular * (specularStrength * texture(material.specular, fs_in.TexCoords).rgb * light.color);
-// final fragment's color
-  vec3 result =  ambient + diffuse + specular;
-  FragColor = vec4(result, 1.0f);
+	// final fragment's color
+	vec3 result =  ambient + diffuse + specular;
+	FragColor = vec4(result, 1.0f);
 }
 ```
 ## About Shadow
@@ -168,7 +168,7 @@ uniform mat4 model;
 
 void main()
 {
-    gl_Position = lightSpaceMatrix * model * vec4(position, 1.0f);
+	gl_Position = lightSpaceMatrix * model * vec4(position, 1.0f);
 }
 ```
 and fragment shader code:
@@ -177,7 +177,7 @@ and fragment shader code:
 
 void main()
 {             
-    // gl_FragDepth = gl_FragCoord.z;
+	// gl_FragDepth = gl_FragCoord.z;
 }
 ```
 which does nothing 'cause depth information will be set automatically. Then we've got a depth texture which reflects depth of the closest fragment seen from position of source light, and we can use it to render our shadow simply with a function checking whether current fragment's depth is deeper than the closest one see from light to it:
@@ -185,24 +185,24 @@ which does nothing 'cause depth information will be set automatically. Then we'v
 ...
 float ShadowCalculation(vec4 fragPosLightSpace)
 {
-    // perform perspective divide
-    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-    // Transform to [0,1] range
-    projCoords = projCoords * 0.5 + 0.5;
-    // Get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
-    float closestDepth = texture(shadowMap, projCoords.xy).r; 
-    // Get depth of current fragment from light's perspective
-    float currentDepth = projCoords.z;
-    // check if deeper or not
-    shadow = currentDepth > closestDepth?1.0f:0.0f;
-    return shadow;
+	// perform perspective divide
+	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+	// Transform to [0,1] range
+	projCoords = projCoords * 0.5 + 0.5;
+	// Get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+	float closestDepth = texture(shadowMap, projCoords.xy).r; 
+	// Get depth of current fragment from light's perspective
+	float currentDepth = projCoords.z;
+	// check if deeper or not
+	shadow = currentDepth > closestDepth?1.0f:0.0f;
+	return shadow;
 }
 void main(){
-    // calculate ambient, diffuse and specular
-    ...
-    // since ambient will always be considerred
-    vec3 result = ambient + (1 - shadow) * (diffuse + specular);
-    FragColor = vec4(result, 1.0f);
+	// calculate ambient, diffuse and specular
+	...
+	// since ambient will always be considerred
+	vec3 result = ambient + (1 - shadow) * (diffuse + specular);
+	FragColor = vec4(result, 1.0f);
 }
 ```
 ### Optimization
@@ -210,7 +210,19 @@ Shadow performs disappointing 'cause there are some problems:
 + Shadow Acne
 + Serrated
 #### Shadow Acne
-
+Sometimes when several pixels of fragment sampled with one pixel of the depth texture, black lines crossing through surface will be "perfectly" observed from camera's perspective. This is because some pixels whose depth value is greater than the sampled one thinks that it should be covered with shadow, resulting in the black lines we see through the view port.
+To solve this problem, consider a bias, which will lift up the depth texture so that fragments will not think themselves under the surface:
+```c++
+float ShadowCalculation(vec4 fragPosLightSpace)
+{
+	...
+	// Calculate bias (based on depth map resolution and slope)
+	vec3 normal = normalize(fs_in.Normal);
+	vec3 lightDir = normalize(lightPos - fs_in.FragPos);
+	float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+	...
+}
+```
 #### Serrated
 Since several pixels of fragments sampled with one pixel of the depth texture, it always results in a serrated effect of the shadow renderred. However, it could be reduced by setting a higher resolution of the depth texture or making the spetrum much more closer to the scene going to be renderred. But sometimes it's not available to do so due to some requires of efficiency or the very scene gonna to  be renderred. 
 One of a way is called PCF (Percentage-Closer Filtering) which does a multiple sampling and calculates an average result, but still not satisfies us a lot. Anyway, it can fit most of our requirement in renderring shadow.
@@ -219,38 +231,38 @@ And now the shadow calculation function will like:
 ...
 float ShadowCalculation(vec4 fragPosLightSpace)
 {
-    // perform perspective divide
-    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-    // Transform to [0,1] range
-    projCoords = projCoords * 0.5 + 0.5;
-    // Get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
-    float closestDepth = texture(shadowMap, projCoords.xy).r; 
-    // Get depth of current fragment from light's perspective
-    float currentDepth = projCoords.z;
-    // Calculate bias (based on depth map resolution and slope)
-    vec3 normal = normalize(fs_in.Normal);
-    vec3 lightDir = normalize(lightPos - fs_in.FragPos);
-    float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
-    // Check whether current frag pos is in shadow
-    // float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
-    // PCF
-    float shadow = 0.0;
-    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
-    for(int x = -1; x <= 1; ++x)
-    {
-        for(int y = -1; y <= 1; ++y)
-        {
-            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
-            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;        
-        }    
-    }
-    shadow /= 9.0;
-    
-    // Keep the shadow at 0.0 when outside the far_plane region of the light's frustum.
-    if(projCoords.z > 1.0)
-        shadow = 0.0;
-        
-    return shadow;
+	// perform perspective divide
+	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+	// Transform to [0,1] range
+	projCoords = projCoords * 0.5 + 0.5;
+	// Get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+	float closestDepth = texture(shadowMap, projCoords.xy).r; 
+	// Get depth of current fragment from light's perspective
+	float currentDepth = projCoords.z;
+	// Calculate bias (based on depth map resolution and slope)
+	vec3 normal = normalize(fs_in.Normal);
+	vec3 lightDir = normalize(lightPos - fs_in.FragPos);
+	float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+	// Check whether current frag pos is in shadow
+	// float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
+	// PCF
+	float shadow = 0.0;
+	vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+	for(int x = -1; x <= 1; ++x)
+	{
+	for(int y = -1; y <= 1; ++y)
+	{
+	    float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
+	    shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;        
+	}    
+	}
+	shadow /= 9.0;
+
+	// Keep the shadow at 0.0 when outside the far_plane region of the light's frustum.
+	if(projCoords.z > 1.0)
+	shadow = 0.0;
+
+	return shadow;
 }
 ...
 ```
