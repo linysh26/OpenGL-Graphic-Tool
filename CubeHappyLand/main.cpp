@@ -11,10 +11,12 @@
 #include "imgui.h"
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_glfw.h"
-
+#include "ShaderCode.h"
+#include "TextureManager.h"
 #include "Camera.h"
 #include "Light.h"
 #include "Cube.h"
+#include "Plane.h"
 
 #define WINDOW_HEIGHT 1600
 #define WINDOW_WIDTH 1600
@@ -32,16 +34,12 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
 // mouse action callback
 void processCursor(GLFWwindow *window);
-// set shader program we have defined
-void setShaderProgram(const char* vertexShaderSource, const char* fragmentShaderSource, unsigned int& shaderProgram);
 // dividebackground into grid
 void drawGrid(int rows, int cols, float* color, unsigned int& shaderProgram);
 // draw line from v1 to v2 using Bresenhem
 void myLineTo(float* v1, float* v2, float* color, unsigned int& shaderProgram);
 // draw circle at center with radius using Bresenhem
 void myCircleAt(float* center, float radius, float* color, unsigned int& shaderProgram);
-// build a 3D cube
-void myCubeBuild(const float* vertices, float edgeLength, glm::vec3 position, glm::vec3 rotation, glm::vec3 scale, const char* texture_path, unsigned int shaderProgram);
 // draw square with primitive GL_TRIANLE
 void drawSquare2D(float xi_1, float yi_1, float edgeLength, float* color, unsigned int& shaderProgram);
 // draw line with primitive GL_LINE
@@ -51,128 +49,6 @@ void drawCircle(float* center, float radius, float* color, int count, unsigned i
 // draw triangle with primitive GL_TRIANLE
 void drawTriangle(float* v1, float* v2, float* v3, float* color, unsigned int& shaderProgram);
 
-// VERTEX SHADER
-// source code for vertex shader
-const char* vertexShaderSource = "#version 330 core\n"
-"layout(location = 0) in vec3 aPos;\n"
-"layout(location = 1) in vec3 aCol;\n"
-"out vec3 myColor;\n"
-"void main()\n"
-"{\n"
-"	gl_Position = vec4(aPos, 1.0f);\n"
-"	myColor = aCol;\n"
-"}\n";
-// source code for cube's vertex shader
-const char* vss_cube = "#version 330 core\n"
-"layout(location = 0) in vec3 aPos;\n"
-"layout(location = 1) in vec2 aTexCoord;\n"
-"out vec2 TexCoord;\n"
-"uniform mat4 model;\n"
-"uniform mat4 view;\n"
-"uniform mat4 projection;\n"
-"void main()\n"
-"{\n"
-"	gl_Position = projection * view * model * vec4(aPos, 1.0f);\n"
-"	TexCoord = aTexCoord;\n"
-"}";
-// FRAGMENT SHADER
-// cource code for fragment shader
-const char* fragmentShaderSource = "#version 330 core\n"
-// @keyword out Declare a output variable
-"out vec4 FragColor;\n"
-"in vec3 myColor;\n"
-"void main()\n"
-"{\n"
-"	FragColor = vec4(myColor, 1.0f);\n"
-"}\n";
-// source code for cube fragment shader
-const char* fss_cube = "#version 330 core\n"
-"out vec4 FragColor;\n"
-"in vec2 TexCoord;\n"
-"uniform sampler2D myTexture;\n"
-"void main()\n"
-"{\n"
-"	FragColor = texture(myTexture, TexCoord);\n"
-"}\n";
-
-const char* phong_vertex_shader = "#version 330 core\n"
-"layout(location = 0) in vec3 aPos;\n"
-"layout(location = 1) in vec3 aNormal;\n"
-"out vec3 FragPos;\n"
-"out vec3 Normal;\n"
-"uniform mat4 model;\n"
-"uniform mat4 view;\n"
-"uniform mat4 projection;\n"
-"void main()\n"
-"{\n"
-"	FragPos = vec3(model * vec4(aPos, 1.0f));\n"
-"	gl_Position = projection * view * vec4(FragPos, 1.0f);\n"
-"	Normal = mat3(transpose(inverse(model))) * aNormal;\n"
-"}\n";
-
-const char* phong_fragment_shader = "#version 330 core\n"
-"in vec3 FragPos;\n"
-"in vec3 Normal;\n"
-"out vec4 FragColor;\n"
-"uniform vec3 objectColor;\n"
-"uniform vec3 lightColor;\n"
-"uniform vec3 viewPos;\n"
-"uniform vec3 lightPos;\n"
-"uniform float ambientFactor;\n"
-"uniform float diffuseFactor;\n"
-"uniform float specularFactor;\n"
-"uniform float shininess;\n"
-"void main()\n"
-"{\n"
-"	vec3 ambient = ambientFactor * lightColor;\n"
-"	vec3 normal = normalize(Normal);\n"
-"	vec3 lightDirection = normalize(lightPos - FragPos);\n"
-"	float diffuseStrength = max(dot(normal, lightDirection), 0.0f);\n"
-"	vec3 diffuse = diffuseStrength * lightColor * diffuseFactor;\n"
-"	vec3 viewDirection = normalize(viewPos - FragPos);\n"
-"	vec3 reflectDirection = normalize(reflect(-lightDirection, normal));\n"
-"	float specularStrength = max(pow(dot(viewDirection, reflectDirection), shininess), 0.0f);\n"
-"	vec3 specular = specularStrength * lightColor * specularFactor;\n"
-"	vec3 result =  (ambient + diffuse + specular) * objectColor ;\n"
-"	FragColor = vec4(result, 1.0f);\n"
-"}\n";
-
-const char* gouraud_vertex_shader = "#version 330 core\n"
-"layout(location = 0) in vec3 aPos;\n"
-"layout(location = 1) in vec3 aNormal;\n"
-"out vec3 color;\n"
-"uniform mat4 model;\n"
-"uniform mat4 view;\n"
-"uniform mat4 projection;\n"
-"uniform vec3 viewPos;\n"
-"uniform vec3 lightPos;\n"
-"uniform vec3 objectColor;\n"
-"uniform vec3 lightColor;\n"
-"uniform float ambientFactor;\n"
-"uniform float diffuseFactor;\n"
-"uniform float specularFactor;\n"
-"uniform float shininess;\n"
-"void main() {\n"
-"	vec3 FragPos = vec3(model * vec4(aPos, 1.0f));\n"
-"	gl_Position = projection * view * vec4(FragPos, 1.0f);\n"
-"	vec3 Normal = mat3(transpose(inverse(model))) * aNormal;\n"
-"	vec3 ambient = ambientFactor * lightColor;\n"
-"	vec3 normal = normalize(Normal);\n"
-"	vec3 lightDirection = normalize(lightPos - FragPos);\n"
-"	float diffuseStrength = max(dot(normal, lightDirection), 0.0f);\n"
-"	vec3 diffuse = diffuseStrength * lightColor * diffuseFactor;\n"
-"	vec3 viewDirection = normalize(viewPos - FragPos);\n"
-"	vec3 reflectDirection = normalize(reflect(-lightDirection, normal));\n"
-"	float specularStrength = max(pow(dot(viewDirection, reflectDirection), shininess), 0.0f);\n"
-"	vec3 specular = specularStrength * lightColor * specularFactor;\n"
-"	color =  (ambient + diffuse + specular) * objectColor ;\n"
-"}";
-const char* gouraud_fragment_shader = "#version 330 core\n"
-"in vec3 color;\n"
-"out vec4 FragColor;\n"
-"void main() {\n"
-"	FragColor = vec4(color, 1.0f);\n"
-"}";
 // mouse position
 double xPos = 0;
 double yPos = 0;
@@ -181,7 +57,7 @@ bool isActive = true;
 // user's option
 int option = DEFAULT_OPTION;
 // picker's color
-float* picker_color = new float[3];
+float picker_color[3] = { 1.0f, 0.5f, 0.31f };
 // grid color
 float grid_color[3] = { 1.0f, 1.0f, 1.0f };
 // line and circles' color
@@ -190,6 +66,11 @@ float draw_color[3] = { 0.0f, 0.0f, 1.0f };
 // camera
 Camera camera(45.0f, 1.0f, 100.0f);
 int key_grave_state = GLFW_RELEASE;
+
+
+// timing
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
 
 int main()
 {
@@ -232,6 +113,11 @@ int main()
 	// register callback function
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
+
+	// enable depth test
+	glEnable(GL_DEPTH_TEST);
+	// glDisable(GL_DEPTH_TEST);
+
 	// ****************************************** data ************************************************
 	// vertices data for "Color Edit"
 	// define the triangle's vertices' position data 
@@ -252,33 +138,103 @@ int main()
 	// edge length for square as a point
 	float edge = 0.1f;
 
-	// for "Build My Cube"
-	float camera_position[3] = { 0.0f, 0.0f, -3.0f };
+	// camera
 	camera.aspect = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
-	Cube cubes[100];
 
+	// cubes
+	Cube cubes[100];
 	int size = 0;
 	Cube* currentObject = new Cube();
 
-	// light shaders
-	Light sourceLight(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+	// plane
+	Plane plane({ 0.0f, 0.0f, 0.0f }, {0.0f, 0.0f, 0.0f}, {10.0f, 10.0f, 1.0f});
+
+
+	// color of light
+	glm::vec3 lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
 	// color of object
 	glm::vec3 objectColor = { 1.0f, 0.5f, 0.31f };
+	// lights
+	Light sourceLight(glm::vec3(0.0f, 0.0f, 0.0f), lightColor, POINT_LIGHT);
+	Light paralLight(glm::vec3(0.0f, 4.0f, 0.0f), lightColor, PARALELL_LIGHT);
 
-	// set shader program
-	unsigned int shaderProgram, shaderProgram_cube;
+	// shaders
 	// for cube
-	setShaderProgram(vss_cube, fss_cube, shaderProgram_cube);
+	Shader cube(vss_cube, fss_cube);
 	// for 2D object
-	setShaderProgram(vertexShaderSource, fragmentShaderSource, shaderProgram);
+	Shader graph2D(vertexShaderSource, fragmentShaderSource);
 	Shader texture(vss_cube, fss_cube);
 	Shader phong(phong_vertex_shader, phong_fragment_shader);
 	Shader gouraud(gouraud_vertex_shader, gouraud_fragment_shader);
-	Shader currentShader = phong;
+	Shader blinn(blinn_vertex_shader, blinn_fragment_shader);
+	Shader depth(depth_vertex, depth_fragment);
+	Shader currentShader = blinn;
 
-	// enable depth test
-	glEnable(GL_DEPTH_TEST);
-	// glDisable(GL_DEPTH_TEST);
+	// textures
+	// get texture manager's instance
+	TextureManager* textureManager = TextureManager::getInstance();
+	// load container for simple cube scene
+	GLuint container = textureManager->load("Resources/Materials/Textures/container.jpg");
+	cube.setInt("myTexture", container);
+	
+	// load diffuse texture and specular texture for light model scene
+	GLuint floorTexture = textureManager->load("Resources/Materials/Textures/wall.jpg");
+	GLuint diffuseTexture = textureManager->load("Resources/Materials/Textures/container2.jpg");
+	GLuint specularTexture = textureManager->load("Resources/Materials/Textures/container2_specular.jpg");
+
+	// Configure depth map FBO
+	const GLuint SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+	GLuint depthMapFBO;
+	glGenFramebuffers(1, &depthMapFBO);
+	// - Create depth texture
+	GLuint depthTexture;
+	glGenTextures(1, &depthTexture);
+	glBindTexture(GL_TEXTURE_2D, depthTexture);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	GLfloat borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+
+	// pass textures
+	gouraud.use();
+	gouraud.setInt("material.diffuse", 0);
+	gouraud.setInt("material.specular", 1);
+	gouraud.setInt("shadowMap", 2);
+	gouraud.setFloat("light.constant", 1.0f);
+	gouraud.setFloat("light.linear", 0.09f);
+	gouraud.setFloat("light.quadratic", 0.032f);
+
+	phong.use();
+	phong.setInt("material.diffuse", 0);
+	phong.setInt("material.specular", 1);
+	phong.setInt("shadowMap", 2);
+	phong.setFloat("light.constant", 1.0f);
+	phong.setFloat("light.linear", 0.09f);
+	phong.setFloat("light.quadratic", 0.032f);
+
+	blinn.use();
+	blinn.setInt("material.diffuse", 0);
+	blinn.setInt("material.specular", 1);
+	blinn.setInt("shadowMap", 2);
+	blinn.setFloat("light.constant", 1.0f);
+	blinn.setFloat("light.linear", 0.09f);
+	blinn.setFloat("light.quadratic", 0.032f);
+
+	// render a shadow texture
+	// cut off plane for light's perspective
+	GLfloat near_plane = 1.0f, far_plane = 7.5f;
 
 	// ******************************************* UI ***************************************************
 	// setup dear gui context
@@ -292,15 +248,19 @@ int main()
 	ImGui_ImplOpenGL3_Init("#version 330");
 	// main loop
 	while (!glfwWindowShouldClose(window)) {
+
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		// per-frame time logic
+		// --------------------
+		float currentFrame = glfwGetTime();
+		deltaTime = currentFrame - lastFrame;
+		lastFrame = currentFrame;
 		// receive input
 		// keyboard input
 		processInput(window);
 		// cursor action
 		processCursor(window);
-
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 		glfwPollEvents();
 		// create imgui
 		// CREATE IMGUI
@@ -338,7 +298,7 @@ int main()
 				// bind a array of type of float with the color editor
 				ImGui::ColorEdit3("color", picker_color);
 			}
-			drawTriangle(A, B, C, picker_color, shaderProgram);
+			drawTriangle(A, B, C, picker_color, graph2D.ID);
 			break;
 		case 1:
 			// draw a triangle with three given vertices using Bresenhem
@@ -352,11 +312,11 @@ int main()
 				ImGui::EndGroup();
 			}
 			// draw grid
-			drawGrid(19, 19, grid_color, shaderProgram);
+			drawGrid(19, 19, grid_color, graph2D.ID);
 			// from v1 to v2
-			myLineTo(v1, v2, draw_color, shaderProgram);
-			myLineTo(v1, v3, draw_color, shaderProgram);
-			myLineTo(v2, v3, draw_color, shaderProgram);
+			myLineTo(v1, v2, draw_color, graph2D.ID);
+			myLineTo(v1, v3, draw_color, graph2D.ID);
+			myLineTo(v2, v3, draw_color, graph2D.ID);
 			break;
 		case 2:
 			// draw a circle with a given origin and radius using Bresenhem
@@ -367,8 +327,8 @@ int main()
 				ImGui::SliderFloat("Radius", &radius, 0.0f, 1.0f);
 				ImGui::EndGroup();
 			}
-			drawGrid(19, 19, grid_color, shaderProgram);
-			myCircleAt(center, radius, draw_color, shaderProgram);
+			drawGrid(19, 19, grid_color, graph2D.ID);
+			myCircleAt(center, radius, draw_color, graph2D.ID);
 			break;
 		case 3:
 			// 3D builder
@@ -393,11 +353,26 @@ int main()
 									sourceLight.status = "Visible";
 								}
 							}
-							if (ImGui::MenuItem("Phong mode")) {
-								currentShader = phong;
+							if (ImGui::BeginMenu("Light Mode")) {
+								if (ImGui::MenuItem("Point Light")) {
+
+								}
+								if (ImGui::MenuItem("Parallel light")) {
+
+								}
+								ImGui::EndMenu();
 							}
-							if (ImGui::MenuItem("Gouraud mode")) {
-								currentShader = gouraud;
+							if (ImGui::BeginMenu("Shading Mode")) {
+								if (ImGui::MenuItem("Phong mode")) {
+									currentShader = phong;
+								}
+								if (ImGui::MenuItem("Gouraud mode")) {
+									currentShader = gouraud;
+								}
+								if (ImGui::MenuItem("Blinn mode")) {
+									currentShader = blinn;
+								}
+								ImGui::EndMenu();
 							}
 							ImGui::EndMenu();
 						}
@@ -417,17 +392,16 @@ int main()
 				float position[3] = { currentObject->transform.position[0], currentObject->transform.position[1], currentObject->transform.position[2] };
 				float rotation[3] = { currentObject->transform.rotation[0], currentObject->transform.rotation[1], currentObject->transform.rotation[2] };
 				float scale[3] = { currentObject->transform.scale[0], currentObject->transform.scale[1], currentObject->transform.scale[2] };
-				float lightColor[3] = { sourceLight.lightColor[0], sourceLight.lightColor[1], sourceLight.lightColor[2] };
-				float lightPosition[3] = { sourceLight.transform.position[0], sourceLight.transform.position[1], sourceLight.transform.position[2] };
+				float lightColor[3] = { paralLight.lightColor[0], paralLight.lightColor[1], paralLight.lightColor[2] };
+				float lightPosition[3] = { paralLight.transform.position[0], paralLight.transform.position[1], paralLight.transform.position[2] };
 				float objCol[3] = { objectColor[0], objectColor[1], objectColor[2] };
 				ImGui::LabelText("Transform", currentObject->name.c_str());
-				ImGui::SliderFloat3("Position", position, -10.0f, 10.0f);
+				ImGui::SliderFloat3("Position", position, -20.0f, 20.0f);
 				ImGui::SliderFloat3("Rotation", rotation, 0.0f, 180.0f);
 				ImGui::SliderFloat3("Scale", scale, 0.0f, 5.0f);
 				ImGui::LabelText("", "Light");
 				ImGui::SliderFloat3("Light Position", lightPosition, -10.0f, 10.0f);
 				ImGui::SliderFloat3("Light Color", lightColor, 0.0f, 1.0f);
-				ImGui::SliderFloat3("Object Color", objCol, 0.0f, 1.0f);
 				ImGui::SliderFloat("Ambient Factor", &sourceLight.ambientFactor, 0.0f, 1.0f);
 				ImGui::SliderFloat("Diffuse Factor", &sourceLight.diffuseFactor, 0.0f, 1.0f);
 				ImGui::SliderFloat("Specular Factor", &sourceLight.specularFactor, 0.0f, 10.0f);
@@ -436,20 +410,60 @@ int main()
 				currentObject->transform.position = { position[0], position[1], position[2] };
 				currentObject->transform.rotation = { rotation[0], rotation[1], rotation[2] };
 				currentObject->transform.scale = { scale[0], scale[1], scale[2] };
-				sourceLight.transform.position = { lightPosition[0], lightPosition[1], lightPosition[2] };
-				sourceLight.lightColor = { lightColor[0], lightColor[1], lightColor[2] };
+				paralLight.transform.position = { lightPosition[0], lightPosition[1], lightPosition[2] };
+				paralLight.lightColor = { lightColor[0], lightColor[1], lightColor[2] };
 				objectColor = { objCol[0], objCol[1], objCol[2] };
 				ImGui::EndGroup();
 			}
-			// render bulb
-			if (sourceLight.visible) {
-				sourceLight.render(camera);
-			}
+
+
+			// transformation matrix from world space to light's perspective space
+			// projection from light's perspective
+			glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+			// parallel light
+			glm::mat4 lightView = glm::lookAt(paralLight.transform.position, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+			glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+			// - now render scene from light's point of view
+			depth.use();
+			glUniformMatrix4fv(glGetUniformLocation(depth.ID, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+
+			glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+			glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+			glClear(GL_DEPTH_BUFFER_BIT);
+			// render plane with depth texture renderred above
+			plane.render(depth);
 			// render cubes
 			for (int i = 0; i < size; i++) {
-				cubes[i].render(camera, sourceLight, currentShader, objectColor);
+				cubes[i].render(depth);
 			}
-			
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
+			// render cubes with depth texture renderred above
+			glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			blinn.use();
+			glUniformMatrix4fv(glGetUniformLocation(blinn.ID, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+			// bind diffuse texture
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, floorTexture);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, floorTexture);
+			glActiveTexture(GL_TEXTURE10);
+			glBindTexture(GL_TEXTURE_2D, depthTexture);
+			// render plane with depth texture renderred above
+			plane.render(camera, paralLight, blinn);
+
+			// bind specular texture
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, diffuseTexture);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, specularTexture);
+			// render cubes
+			for (int i = 0; i < size; i++) {
+				cubes[i].render(camera, paralLight, blinn);
+			}
 			break;
 		default:
 			break;
@@ -542,71 +556,6 @@ void processCursor(GLFWwindow* window) {
 
 void error_callback(int error, const char* description) {
 	cout << stderr << "Error: " << description << endl;
-}
-
-// @dev In OpenGL nowadays, we should at least define a vertex shader and a fragments shader if we want to do some
-// renderring. We are going to use GLSL(OpenGL Shading Language) to program our shaders. We can use them after
-// they are having compiled.
-// @param vertexShaderSource Source code string of vertex shader program
-// @param fragmentShaderSource Source code string of fragment shader program
-// @param shaderProgram Id of the shader program
-void setShaderProgram(const char* vertexShaderSource, const char* fragmentShaderSource, unsigned int& shaderProgram) {
-	
-	// shader object's id
-	unsigned int vertexShader;
-	// create a vertex shader and return its id, which we will use it as a reference to the very shader
-	vertexShader = glCreateShader(GL_VERTEX_SHADER);
-
-	// @dev set shader's source code
-	// @param shader	The shader'id
-	// @param count		The count of number of source code string
-	// @param string	The source code
-	// @param length	The length of the whole source code(?)
-	glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-	glCompileShader(vertexShader);
-
-	// check whether it is compiled successfully
-	// flag
-	int success;
-	// compile information log
-	char infoLog[512];
-	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-	if (!success)
-	{
-		// get compile error message
-		glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-		std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-	}
-	// fragment shader's id
-	unsigned int fragmentShader;
-	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-	glCompileShader(fragmentShader);
-	// check whether it is compiled successfully
-	glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-	if (!success)
-	{
-		// get compile error message
-		glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-		cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << endl;
-	}
-	// create shader program
-	shaderProgram = glCreateProgram();
-	// TESTS AND BLENDING
-	glAttachShader(shaderProgram, vertexShader);
-	glAttachShader(shaderProgram, fragmentShader);
-	glLinkProgram(shaderProgram);
-
-	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-	if (!success) {
-		glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-		cout << "ERROR::SHDAER::PROGRAM::LINK_FAILED\n" << infoLog << endl;
-	}
-
-	// delete shaders cause we won't use it anymore
-	glUseProgram(shaderProgram);
-	glDeleteShader(vertexShader);
-	glDeleteShader(fragmentShader);
 }
 
 // @dev create a grid style for background

@@ -1,12 +1,13 @@
 ﻿  main.cpp
-c:\users\星空\source\repos\cubehappyland\cubehappyland\light.h(42): warning C4305: “初始化”: 从“double”到“float”截断
-c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(649): warning C4244: “初始化”: 从“float”转换到“int”，可能丢失数据
-c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(675): warning C4244: “初始化”: 从“float”转换到“int”，可能丢失数据
-c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(706): warning C4838: 从“double”转换到“float”需要收缩转换
-c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(702): warning C4244: “初始化”: 从“double”转换到“float”，可能丢失数据
-c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(703): warning C4244: “初始化”: 从“double”转换到“float”，可能丢失数据
-c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(704): warning C4244: “初始化”: 从“double”转换到“float”，可能丢失数据
-c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(705): warning C4244: “初始化”: 从“double”转换到“float”，可能丢失数据
-c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(800): warning C4244: “=”: 从“double”转换到“float”，可能丢失数据
-c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(801): warning C4244: “=”: 从“double”转换到“float”，可能丢失数据
+c:\users\星空\source\repos\cubehappyland\cubehappyland\light.h(46): warning C4305: “初始化”: 从“double”到“float”截断
+c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(256): warning C4244: “初始化”: 从“double”转换到“float”，可能丢失数据
+c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(598): warning C4244: “初始化”: 从“float”转换到“int”，可能丢失数据
+c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(624): warning C4244: “初始化”: 从“float”转换到“int”，可能丢失数据
+c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(655): warning C4838: 从“double”转换到“float”需要收缩转换
+c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(651): warning C4244: “初始化”: 从“double”转换到“float”，可能丢失数据
+c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(652): warning C4244: “初始化”: 从“double”转换到“float”，可能丢失数据
+c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(653): warning C4244: “初始化”: 从“double”转换到“float”，可能丢失数据
+c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(654): warning C4244: “初始化”: 从“double”转换到“float”，可能丢失数据
+c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(749): warning C4244: “=”: 从“double”转换到“float”，可能丢失数据
+c:\users\星空\source\repos\cubehappyland\cubehappyland\main.cpp(750): warning C4244: “=”: 从“double”转换到“float”，可能丢失数据
   CubeHappyLand.vcxproj -> C:\Users\星空\source\repos\CubeHappyLand\Debug\CubeHappyLand.exe

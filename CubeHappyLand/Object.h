@@ -43,7 +43,6 @@ public:
 	// position, rotation and scale of the object
 	Transform transform;
 
-	Shader shader;
 
 	// Operations
 	//

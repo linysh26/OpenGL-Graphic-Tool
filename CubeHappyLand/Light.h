@@ -1,6 +1,9 @@
 #pragma once
-
+#include <stb_image.h>
+#include "TextureManager.h"
 #include "Camera.h"
+
+enum LIGHT_TYPE { POINT_LIGHT, PARALELL_LIGHT };
 
 float light_vertices[] = {
 				-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
@@ -36,6 +39,7 @@ public:
 		"	FragColor = texture(myTexture, TexCoord);\n"
 		"}\n";
 public:
+	Shader shader;
 	// color of light
 	glm::vec3 lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
 	// ambient intensity
@@ -53,13 +57,14 @@ public:
 	// texture id
 	unsigned int texture;
 	// path of texture
-	const char* lightIcon = "Resources/Icons/bulb.jpg";
+	const char* pointLightIcon = "Resources/Icons/bulb.jpg";
+	const char* paralLightIcon = "Resources/Icons/paral.jpg";
 	// status
 	bool visible = false;
 	std::string status = "Invisible";
 
 	Light(){}
-	Light(glm::vec3 position, glm::vec3 lightColor) {
+	Light(glm::vec3 position, glm::vec3 lightColor, LIGHT_TYPE type):Object() {
 		// parameter initialize
 		this->transform.position = position;
 		this->lightColor = lightColor;
@@ -68,34 +73,7 @@ public:
 		// initliaze shader
 		this->shader = Shader(srcLight_vertex_shader, srcLight_fragment_shader);
 
-		// create texture for light
-		glGenTextures(1, &texture);
-		glBindTexture(GL_TEXTURE_2D, texture);
-
-		// set texture wrapping parameters
-		// for S direction (x direction)
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-		// for T direction (y direction)
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-		// set texture filtering parameters
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		// for minify
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
-		// load image
-		int width, height, nrChannels;
-		// tell stb_image.h to flip the loaded texture's on the y-axis
-		stbi_set_flip_vertically_on_load(true);
-		unsigned char* data = stbi_load(lightIcon, &width, &height, &nrChannels, 0);
-		if (data) {
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-			glGenerateMipmap(GL_TEXTURE_2D);
-		}
-		else {
-			std::cout << "Failed to load texture!" << std::endl;
-		}
-		stbi_image_free(data);
-		glUniform1i(glGetUniformLocation(shader.ID, "texture"), 0);
+		texture = TextureManager::getInstance()->load(this->pointLightIcon);
 
 		glGenVertexArrays(1, &VAO);
 		glGenBuffers(1, &VBO);
@@ -113,7 +91,6 @@ public:
 		// deallocate
 		glDeleteVertexArrays(1, &VAO);
 		glDeleteBuffers(1, &VBO);
-		glDeleteTextures(1, &texture);
 	}
 
 
