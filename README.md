@@ -16,13 +16,20 @@ This is a tool implemented by c++'s OpenGL which can draw triangles, lines, circ
 [create your glad header and include it in your project](https://learnopengl-cn.github.io/01%20Getting%20started/02%20Creating%20a%20window/#glad)
 ## ImGUI
 [download and include ImGUI in your project](https://github.com/ocornut/imgui)
-## About light model: Blinn, Phong and Gouraud
-### Introduction
+## About 2D tool
+### Triangle & Circle
+Both triangle and circle is based on Bresenhem algorithm. You can change the vertices of the triangle and length of radiums of the circle as you like. Surely you can also choose your favourite color by using the color picker.
+### Bezier
+Left click to add a control point for bezier tool, and right click to delete the last one added.  
+You can observe the whole process how a bezier curve is drew and a pause/play button is available for you to enjoy a better learning experience.
+## About 3D tool
+### About light model: Blinn, Phong and Gouraud
+#### Introduction
 These kinds of light model are a light model consists three parts:
 + ambient
 + diffuse
 + specular
-### Differences between Blinn, Phong and Gouraud
+#### Differences between Blinn, Phong and Gouraud
 We have implemented three kinds of lighting model, Blinn, Phong and Gouraud. The most difference from Blinn and Phong with Gouraud is that **Blinn(Phong) calculating light's influence on each pixel with normal interpolated by each vertex while Gouraud calculating light's influence on vertices, with which fragment's color is interpolated**. And the only difference between Blinn and Phong is the way of handling specular part, as **Phong calculates specular with reflect direction and our viewing direction while Blinn calculates using a halfway angle and the normal of the very fragment**. We can easily figure out this difference with their shader programs.
 Blinn and Phong's fragment shader code:  
 ```c++
@@ -114,7 +121,7 @@ void main()
 } 
 ```
 It is obvious that Phong calculate light in fragment shader while Gouraud in vertex shader instead, which shows that Phong is calculating light using normals interpolated while Gouraud outputs the interpolation of vertices' color calculated in vertex shader using corresponding normals.
-## Light Texture
+### Light Texture
 Generally different material will present different effect of light's reflection, such as metal with a shiny reflecting effect and wooden surface always with a weak reflection, which means that it's neccessary for us to prepare different texture for different materials.
 Usually two kinds of textures is better to be given:
 + diffuse texture
@@ -164,8 +171,8 @@ void main()
 	FragColor = vec4(result, 1.0f);
 }
 ```
-## About Shadow
-### Introduction
+### About Shadow
+#### Introduction
 First a frame buffer will be genreated with an attachment of depth texture, in which depth information will be renderred from the perspective of the position of source light with a depth shader with vertex shader code as:
 ```c++
 #version 330 core
@@ -213,11 +220,11 @@ void main(){
 	FragColor = vec4(result, 1.0f);
 }
 ```
-### Optimization
+#### Optimization
 Shadow performs disappointing 'cause there are some problems:
 + Shadow Acne
 + Serrated
-#### Shadow Acne
+##### Shadow Acne
 Sometimes when several pixels of fragment sampled with one pixel of the depth texture, black lines crossing through surface will be "perfectly" observed from camera's perspective. This is because some pixels whose depth value is greater than the sampled one thinks that it should be covered with shadow, resulting in the black lines we see through the view port.
 To solve this problem, consider a bias, which will lift up the depth texture so that fragments will not think themselves under the surface:
 ```c++
@@ -231,7 +238,7 @@ float ShadowCalculation(vec4 fragPosLightSpace)
 	...
 }
 ```
-#### Serrated
+##### Serrated
 Since several pixels of fragments sampled with one pixel of the depth texture, it always results in a serrated effect of the shadow renderred. However, it could be reduced by setting a higher resolution of the depth texture or making the spetrum much more closer to the scene going to be renderred. But sometimes it's not available to do so due to some requires of efficiency or the very scene gonna to  be renderred. 
 One of a way is called PCF (Percentage-Closer Filtering) which does a multiple sampling and calculates an average result, but still not satisfies us a lot. Anyway, it can fit most of our requirement in renderring shadow.
 And now the shadow calculation function will like:
