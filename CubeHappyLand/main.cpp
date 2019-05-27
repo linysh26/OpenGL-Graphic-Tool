@@ -48,10 +48,15 @@ void drawLine(float* v1, float* v2, float* color, unsigned int& shaderProgram);
 void drawCircle(float* center, float radius, float* color, int count, unsigned int& shaderProgram);
 // draw triangle with primitive GL_TRIANLE
 void drawTriangle(float* v1, float* v2, float* v3, float* color, unsigned int& shaderProgram);
+// draw Bezier curve
+void drawBezierCurve(float* controlPoints, int num, float t, float* color, unsigned int shaderProgram);
 
 // mouse position
 double xPos = 0;
 double yPos = 0;
+// mouse button state
+int leftState = GLFW_RELEASE;
+int rightState = GLFW_RELEASE;
 // imgui's status
 bool isActive = true;
 // user's option
@@ -137,6 +142,18 @@ int main()
 	float radius = 0.5f;
 	// edge length for square as a point
 	float edge = 0.1f;
+
+	// for Bezier
+	float controlPoints[100];
+	int numberOfCP = 0;
+	// status
+	enum PLAY_STATUS {MODIFYING, PLAYING, PAUSE};
+	PLAY_STATUS play_status = MODIFYING;
+	std::string playButtonLabel = "play";
+	// progress
+	float t = 0;
+	// color
+	float bezierCol[3] = { 0.4f, 0.5f, 0.31f };
 
 	// camera
 	camera.aspect = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
@@ -281,9 +298,13 @@ int main()
 				if (ImGui::MenuItem("Circle tool", "Ctrl+C")) {
 					option = 2;
 				}
+				if (ImGui::MenuItem("Bezier curve tool", "Ctrl + B")) {
+					option = 4;
+				}
 				if (ImGui::MenuItem("3D tool", "Ctrl+ALT+C")) {
 					option = 3;
 				}
+				
 				if (ImGui::MenuItem("Close", "Ctrl+W")) {
 					isActive = false;
 				}
@@ -331,6 +352,52 @@ int main()
 			myCircleAt(center, radius, draw_color, graph2D.ID);
 			break;
 		case 3:
+		{
+			int currentKeyState = glfwGetKey(window, GLFW_KEY_GRAVE_ACCENT);
+			if (key_grave_state == GLFW_RELEASE && currentKeyState == GLFW_PRESS) {
+				int cursor_mode = glfwGetInputMode(window, GLFW_CURSOR);
+				switch (cursor_mode) {
+				case GLFW_CURSOR_DISABLED:
+					glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+					break;
+				case GLFW_CURSOR_NORMAL:
+					glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+					glfwSetCursorPos(window, xPos, yPos);
+					break;
+				default:
+					break;
+				}
+			}
+			key_grave_state = currentKeyState;
+			float speed = camera.speed;
+			if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+				camera.translate(-camera.transform.x * speed);
+			}
+			if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+				camera.translate(camera.transform.x * speed);
+			}
+			if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+				camera.translate(camera.transform.z * speed);
+			}
+			if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+				camera.translate(-camera.transform.z * speed);
+			}
+			if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
+				camera.translate(-camera.transform.y * speed);
+			}
+			if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
+				camera.translate(camera.transform.y * speed);
+			}
+			// update cursor position if cursor is enable
+			if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED) {
+				float translationX = -(float)xPos * 180.0f / 100000.0f;
+				float translationY = (float)yPos * 90.0f / 100000.0f;
+				float x = sin(translationX) * cos(translationY);
+				float y = sin(translationY);
+				float z = cos(translationX) * cos(translationY);
+				camera.transform.forward = { x, y, z };
+			}
+		}
 			// 3D builder
 			// imgui for Transform of the cube
 			{
@@ -465,6 +532,104 @@ int main()
 				cubes[i].render(camera, paralLight, blinn);
 			}
 			break;
+		case 4:
+			// Bezier curve tool
+			if (play_status == MODIFYING) {
+				int currentLeft = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+				int currentRight = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT);
+				if (leftState == GLFW_RELEASE && currentLeft == GLFW_PRESS) {
+					// add new control point
+					int pos = numberOfCP * 2;
+					controlPoints[pos] = (xPos - WINDOW_WIDTH / 2) / WINDOW_WIDTH * 2;
+					controlPoints[pos + 1] = -(yPos - WINDOW_HEIGHT / 2) / WINDOW_HEIGHT * 2;
+					std::cout << controlPoints[pos] << ", " << controlPoints[pos + 1] << std::endl;
+					numberOfCP++;
+				}
+				if (rightState == GLFW_RELEASE && currentRight == GLFW_PRESS) {
+					// delete last control point
+					numberOfCP--;
+				}
+				leftState = currentLeft;
+				rightState = currentRight;
+			}
+			// draw grid
+			drawGrid(19, 19, grid_color, graph2D.ID);
+			// draw control points
+			for (int i = 0; i < numberOfCP; i++) {
+				int pos = i * 2;
+				drawSquare2D(controlPoints[pos], controlPoints[pos + 1], 2.0f, picker_color, graph2D.ID);
+			}
+			{
+				// control button
+				if (ImGui::Button(playButtonLabel.c_str())) {
+					if (play_status == PLAYING) {
+						play_status = PAUSE;
+						playButtonLabel = "pause";
+					}
+					else if (play_status == PAUSE || play_status == MODIFYING) {
+						if (play_status == MODIFYING) {
+							numberOfCP--;
+						}
+						play_status = PLAYING;
+						playButtonLabel = "play";
+					}
+				}
+				if (ImGui::Button("Restart")) {
+					if (play_status == PLAYING || play_status == PAUSE) {
+						t = 0;
+						playButtonLabel = "pause";
+						play_status = PLAYING;
+					}
+					else if (play_status == MODIFYING) {
+						numberOfCP--;
+					}
+				}
+				if (ImGui::Button("Modify")) {
+					play_status = MODIFYING;
+					t = 0;
+				}
+				// color picker
+				ImGui::ColorPicker3("color", bezierCol);
+			}
+			// draw bezier curve
+			if (play_status != MODIFYING) {
+				if (play_status == PLAYING) {
+					if (t < 1) {
+						t = t + 0.0005;
+					}
+				}
+				// show progress of interpolation
+				float temp[100];
+				int num = numberOfCP;
+				int numCoords = 2 * num;
+				for (int i = 0; i < numCoords; i++) {
+					temp[i] = controlPoints[i];
+				}
+				float col[3] = { bezierCol[0], bezierCol[1], bezierCol[2] };
+				float rChange = (1.0f - col[0]) / (float)num;
+				float gChange = (1.0f - col[1]) / (float)num;
+				float bChange = (1.0f - col[2]) / (float)num;
+				while (num > 1) {
+					for (int i = 0; i < num - 1; i++) {
+						int pos = i * 2;
+						float interpolateX = t * temp[pos] + (1 - t) * temp[pos + 2];
+						float interpolateY = t * temp[pos + 1] + (1 - t) * temp[pos + 3];
+						drawLine((temp + pos), (temp + pos + 2), col, graph2D.ID);
+						temp[pos] = interpolateX;
+						temp[pos + 1] = interpolateY;
+					}
+					col[0] = col[0] + rChange;
+					col[1] = col[1] + gChange;
+					col[2] = col[2] + bChange;
+					num--;
+				}
+				// draw bezier curve
+				for (float tempT = 0; tempT <= t; tempT += 0.01) {
+					drawBezierCurve(controlPoints, numberOfCP, tempT, bezierCol, graph2D.ID);
+					
+				}
+			}
+			break;
 		default:
 			break;
 		}
@@ -504,54 +669,10 @@ void processInput(GLFWwindow *window)
 		glfwSetWindowShouldClose(window, true);
 		return;
 	}
-	int currentKeyState = glfwGetKey(window, GLFW_KEY_GRAVE_ACCENT);
-	if (key_grave_state == GLFW_RELEASE && currentKeyState == GLFW_PRESS) {
-		int cursor_mode = glfwGetInputMode(window, GLFW_CURSOR);
-		switch (cursor_mode) {
-		case GLFW_CURSOR_DISABLED:
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-			break;
-		case GLFW_CURSOR_NORMAL:
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-			glfwSetCursorPos(window, xPos, yPos);
-			break;
-		default:
-			break;
-		}
-	}
-	key_grave_state = currentKeyState;
-	float speed = camera.speed;
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-		camera.translate(-camera.transform.x * speed);
-	}
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-		camera.translate(camera.transform.x * speed);
-	}
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-		camera.translate(camera.transform.z * speed);
-	}
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-		camera.translate(-camera.transform.z * speed);
-	}
-	if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
-		camera.translate(-camera.transform.y * speed);
-	}
-	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
-		camera.translate(camera.transform.y * speed);
-	}
 }
 
 void processCursor(GLFWwindow* window) {
-	if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED) {
-		glfwGetCursorPos(window, &xPos, &yPos);
-		float translationX = -(float)xPos * 180.0f / 100000.0f;
-		float translationY = (float)yPos * 90.0f / 100000.0f;
-		float x = sin(translationX) * cos(translationY);
-		float y = sin(translationY);
-		float z = cos(translationX) * cos(translationY);
-		camera.transform.forward = { x, y, z };
-	}
-	
+	glfwGetCursorPos(window, &xPos, &yPos);
 }
 
 void error_callback(int error, const char* description) {
@@ -599,11 +720,11 @@ void myLineTo(float* v1, float* v2, float* color, unsigned int& shaderProgram) {
 		float pi = yi * 10 - y_;
 		if (pi > 0.5) {
 			// draw
-			drawSquare2D(xi, (float)(y_ + 1) / 10.0f, 0.1f, color, shaderProgram);
+			drawSquare2D(xi, (float)(y_ + 1) / 10.0f, 2.0f, color, shaderProgram);
 		}
 		else {
 			// draw
-			drawSquare2D(xi, (float)y_ / 10.0f, 0.1f, color, shaderProgram);
+			drawSquare2D(xi, (float)y_ / 10.0f, 2.0f, color, shaderProgram);
 		}
 	}
 	drawLine(v1, v2, color, shaderProgram);
@@ -630,10 +751,10 @@ void myCircleAt(float* center, float radius, float* color, unsigned int& shaderP
 			yi = (float)y_ / 10.0f;
 		}
 		// symmetry
-		drawSquare2D(xi, yi, 0.1f, color, shaderProgram);
-		drawSquare2D(xi, -yi, 0.1f, color, shaderProgram);
-		drawSquare2D(-xi, yi, 0.1f, color, shaderProgram);
-		drawSquare2D(-xi, -yi, 0.1f, color, shaderProgram);
+		drawSquare2D(xi, yi, 2.0f, color, shaderProgram);
+		drawSquare2D(xi, -yi, 2.0f,color, shaderProgram);
+		drawSquare2D(-xi, yi, 2.0f, color, shaderProgram);
+		drawSquare2D(-xi, -yi, 2.0f, color, shaderProgram);
 
 	}
 	drawCircle(center, radius, color, 100, shaderProgram);
@@ -648,10 +769,10 @@ void myCircleAt(float* center, float radius, float* color, unsigned int& shaderP
 void drawSquare2D(float x, float y, float edgeLength, float* color, unsigned int& shaderProgram) {
 
 	float vertices_[] = {
-				x - 0.01, y - 0.01, 0.0f, color[0], color[1], color[2],
-				x - 0.01, y + 0.01, 0.0f, color[0], color[1], color[2],
-				x + 0.01, y + 0.01, 0.0f, color[0], color[1], color[2],
-				x + 0.01, y - 0.01, 0.0f, color[0], color[1], color[2]
+				x - 0.01 * edgeLength / 2, y - 0.01 * edgeLength / 2, 0.0f, color[0], color[1], color[2],
+				x - 0.01 * edgeLength / 2, y + 0.01 * edgeLength / 2, 0.0f, color[0], color[1], color[2],
+				x + 0.01 * edgeLength / 2, y + 0.01 * edgeLength / 2, 0.0f, color[0], color[1], color[2],
+				x + 0.01 * edgeLength / 2, y - 0.01 * edgeLength / 2, 0.0f, color[0], color[1], color[2]
 	};
 
 	unsigned int indices[] = {
@@ -850,4 +971,24 @@ void drawTriangle(float* v1, float* v2, float* v3, float* color, unsigned int& s
 
 	glDeleteVertexArrays(1, &VAO);
 	glDeleteBuffers(1, &VBO);
+}
+
+void drawBezierCurve(float* controlPoints, int num, float t, float* color, unsigned int shaderProgram) {
+
+	float temp[100];
+	int numCoords = 2 * num;
+	for (int i = 0; i < numCoords; i++) {
+		temp[i] = controlPoints[i];
+	}
+	while (num > 1) {
+		for (int i = 0; i < num - 1; i++) {
+			int pos = i * 2;
+			float interpolateX = t * temp[pos] + (1 - t) * temp[pos + 2];
+			float interpolateY = t * temp[pos + 1] + (1 - t) * temp[pos + 3];
+			temp[pos] = interpolateX;
+			temp[pos + 1] = interpolateY;
+		}
+		num--;
+	}
+	drawSquare2D(temp[0], temp[1], 1.0f, color, shaderProgram);
 }
