@@ -4,9 +4,8 @@ This is a tool implemented by c++'s OpenGL which can draw triangles, lines, circ
 + GLFW
 + GLAD
 + ImGui
-+ Light Model
-+ Light Texture
-+ Shadow  
++ 2D tool (containing triangles, circles and bezier curve)
++ 3D tool (covering 3D model such as cube, light model with light texture and shadow generation)
 
 ## LearnOpenGL-Tutorial
 [Here is the link for this nice tutorial](https://learnopengl-cn.github.io)
