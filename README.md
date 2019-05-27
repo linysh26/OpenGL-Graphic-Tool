@@ -20,7 +20,7 @@ This is a tool implemented by c++'s OpenGL which can draw triangles, lines, circ
 Both triangle and circle is based on Bresenhem algorithm. You can change the vertices of the triangle and length of radiums of the circle as you like. Surely you can also choose your favourite color by using the color picker.
 ### Bezier
 Left click to add a control point for bezier tool, and right click to delete the last one added.  
-You can observe the whole process how a bezier curve is drew and a pause/play button is available for you to enjoy a better learning experience.
+You can observe how a bezier curve is drew dynamically and a pause/play button is available for you to enjoy a better learning experience.
 ## About 3D tool
 ### About light model: Blinn, Phong and Gouraud
 #### Introduction
